@@ -4,6 +4,6 @@ sh .travis-ocaml.sh
 eval `opam config env`
 
 opam install --yes depext
-opam depext ctypes-foreign
+opam depext ctypes-foreign conf-gmp
 opam install --yes ctypes-foreign ctypes tls
 make
