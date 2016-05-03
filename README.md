@@ -1,4 +1,4 @@
-# Ctypes inverted stubs for OCaml-TLS
+# Ctypes inverted stubs for OCaml-TLS [![Build Status](https://travis-ci.org/Engil/ocaml-ctypes-inverted-stubs-tls-prototype.svg?branch=master)](https://travis-ci.org/Engil/ocaml-ctypes-inverted-stubs-tls-prototype)
 
 **Note**: This is a prototype and a work in progress. The interface will change and the code is still highly immature.
 
