@@ -42,6 +42,11 @@ char *receive_tls(TlsClient *client, int sockfd)
   int received = recv(sockfd, buffer, 4096, 0);
   tls_read_done(client, buffer, received);
   int msg_size = tls_received_appdata(client, buffer, 4096);
+  if (msg_size == -1)
+    {
+      perror("tls_received_appdata error");
+      return 0;
+    }
   ret = malloc(msg_size + 1);
   memcpy(ret, buffer, msg_size);
   ret[msg_size + 1] = '\0';
@@ -105,6 +110,8 @@ int main()
       tls_prepare_appdata(client, sendmsg, strlen(sendmsg));
       handle_tls(client, sockfd);
       recmsg = receive_tls(client, sockfd);
+      if (!recmsg)
+	return 1;
       printf("RECEIVED ->%s\n", recmsg);
       free(recmsg);
     }

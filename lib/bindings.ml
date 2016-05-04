@@ -225,7 +225,7 @@ let tls_received_appdata t buf size =
     | `Eof           -> -1
     | `Ok None       -> 0
     | `Ok (Some res) -> writeout res
-    | `Stopped -> 0
+    | `Stopped -> -1
 
 module Stubs (I : Cstubs_inverted.INTERNAL) =
 struct
