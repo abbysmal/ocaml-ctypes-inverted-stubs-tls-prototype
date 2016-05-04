@@ -205,6 +205,28 @@ let tls_prepare_appdata t buf size =
       ( t.state <- `Active tls ; t.output_buffer <- Some tlsdata; t.hanging <- `Write )
     | None -> ()
 
+let tls_received_appdata t buf size =
+
+  let writeout res =
+    let open Cstruct in
+    let ba = Ctypes.bigarray_of_ptr array1 size Bigarray.char buf in
+    let cs = of_bigarray ba in
+    let rlen = len res in
+    let n    = min (len cs) rlen in
+    blit res 0 cs 0 n ;
+    t.linger <-
+      (if n < rlen then Some (sub res n (rlen - n)) else None) ;
+    n in
+
+  match t.linger with
+  | Some res -> writeout res
+  | None     ->
+    match read_react t with
+    | `Eof           -> -1
+    | `Ok None       -> 0
+    | `Ok (Some res) -> writeout res
+    | `Stopped -> 0
+
 module Stubs (I : Cstubs_inverted.INTERNAL) =
 struct
 
@@ -242,4 +264,6 @@ struct
   let () = I.internal
       "tls_prepare_appdata" (tls_client_typ @-> (ptr char) @-> int @-> returning void) tls_prepare_appdata
 
+  let () = I.internal
+      "tls_received_appdata" (tls_client_typ @-> (ptr char) @-> int @-> returning int) tls_received_appdata
 end

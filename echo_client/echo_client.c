@@ -33,6 +33,21 @@ void handle_tls(TlsClient *client, int sockfd)
   return;
 }
 
+char *receive_tls(TlsClient *client, int sockfd)
+{
+  char buffer[4096];
+  char *ret;
+
+  bzero(buffer, 4096);
+  int received = recv(sockfd, buffer, 4096, 0);
+  tls_read_done(client, buffer, received);
+  int msg_size = tls_received_appdata(client, buffer, 4096);
+  ret = malloc(msg_size + 1);
+  memcpy(ret, buffer, msg_size);
+  ret[msg_size + 1] = '\0';
+  return ret;
+}
+
 int get_socket(char *addr, int port) {
   int sockfd;
   struct sockaddr_in dest;
@@ -86,6 +101,8 @@ int main()
   char * msg = "test";
   tls_prepare_appdata(client, msg, strlen(msg));
   handle_tls(client, sockfd);
-
+  char *recmsg = receive_tls(client, sockfd);
+  printf("RECEIVED ->%s<-\n", recmsg);
+  free(recmsg);
   return 0;
 }
