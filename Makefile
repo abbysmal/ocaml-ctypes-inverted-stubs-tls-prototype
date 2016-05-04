@@ -74,9 +74,17 @@ clean:
 echo_client: all
 	$(MAKE) -C $@
 ifeq ($(OSTYPE),Win32)
-	PATH="$(BUILDDIR):$(PATH)" _build/echo_client/echo_client.native echo_client/ocaml.svg
+        PATH="$(BUILDDIR):$(PATH)" _build/echo_client/echo_client.native
 else
-	LD_LIBRARY_PATH=$(BUILDDIR) _build/echo_client/echo_client.native echo_client/ocaml.svg
+	LD_LIBRARY_PATH=$(BUILDDIR) _build/echo_client/echo_client.native
 endif
 
-.PHONY: echo_client
+echo_server: all
+	$(MAKE) -C $@
+ifeq ($(OSTYPE),Win32)
+        PATH="$(BUILDDIR):$(PATH)" _build/echo_server/echo_server.native
+else
+	LD_LIBRARY_PATH=$(BUILDDIR) _build/echo_server/echo_server.native
+endif
+
+.PHONY: echo_client echo_server

@@ -4,6 +4,10 @@ open Foreign
 
 let () = Nocrypto_entropy_unix.initialize ()
 
+let trace f =
+  let hook = Format.printf "--> %a\n/--\n%!" Sexplib.Sexp.pp_hum in
+  Tls.Tracing.active ~hook f
+
 exception Tls_alert   of Tls.Packet.alert_type
 exception Tls_failure of Tls.Engine.failure
 
@@ -61,11 +65,13 @@ let state_of_int = function
 
 let tls_state_typ = Ctypes.view ~read:state_of_int ~write:int_of_state Ctypes.int
 
-let conf_typedef = Ctypes.typedef void "TlsConf"
+let client_conf_typedef = Ctypes.typedef void "TlsClientConf"
+let server_conf_typedef = Ctypes.typedef void "TlsServerConf"
 let client_typedef = Ctypes.typedef void "TlsClient"
 
 let tls_client_typ = Ctypes.view ~read:Ctypes.Root.get ~write:Ctypes.Root.create (ptr client_typedef)
-let tls_conf_typ = Ctypes.view ~read:Ctypes.Root.get ~write:Ctypes.Root.create (ptr conf_typedef)
+let tls_client_conf_typ = Ctypes.view ~read:Ctypes.Root.get ~write:Ctypes.Root.create (ptr client_conf_typedef)
+let tls_server_conf_typ = Ctypes.view ~read:Ctypes.Root.get ~write:Ctypes.Root.create (ptr server_conf_typedef)
 
 type tls_output
 let tls_output : tls_output structure typ = structure "TlsOutput"
@@ -96,7 +102,7 @@ let rec read_react t =
 
   let handle tls buf =
     match
-      Tls.Engine.handle_tls tls buf
+      trace @@ fun () -> Tls.Engine.handle_tls tls buf
     with
     | `Ok (state', `Response resp, `Data data) ->
       let state' = match state' with
@@ -113,7 +119,7 @@ let rec read_react t =
        t.output_buffer <- (Some resp); t.hanging <- `Write;
        read_react t) in
   match t.state with
-  | `Error e -> assert false
+  | `Error e -> raise e
   | `Eof -> `Eof
   | `Active _ ->
     match t.input_buffer with
@@ -148,6 +154,11 @@ let tls_client_config cert priv_key =
   let certificates = `Single (private_of_pems cert priv_key) in
   Tls.Config.client ~authenticator ~certificates ()
 
+let tls_server_config cert priv_key =
+  let authenticator = X509.Authenticator.null in
+  let certificates = `Single (private_of_pems cert priv_key) in
+  Tls.Config.server ~certificates ~authenticator ()
+
 let tls_client config host =
   let config' = Tls.Config.peer config host in
   let (tls, init) = Tls.Engine.client config' in
@@ -157,6 +168,15 @@ let tls_client config host =
     linger = None;
     input_buffer = None;
     output_buffer = Some init;
+  }
+
+let tls_server config =
+  {
+    state = `Active (Tls.Engine.server config);
+    hanging = `Read;
+    linger = None;
+    input_buffer = None;
+    output_buffer = None;
   }
 
 let tls_get_output_buffer t =
@@ -227,10 +247,13 @@ let tls_received_appdata t buf size =
     | `Ok (Some res) -> writeout res
     | `Stopped -> -1
 
+
 module Stubs (I : Cstubs_inverted.INTERNAL) =
 struct
 
-  let () = I.typedef void "TlsConf"
+  let () = I.typedef void "TlsClientConf"
+
+  let () = I.typedef void "TlsServerConf"
 
   let () = I.typedef void "TlsClient"
 
@@ -241,10 +264,16 @@ struct
   let () = I.structure tls_output
 
   let () = I.internal
-      "tls_client_config" (string @-> string @-> returning tls_conf_typ) tls_client_config
+      "tls_client_config" (string @-> string @-> returning tls_client_conf_typ) tls_client_config
 
   let () = I.internal
-      "tls_client" (tls_conf_typ @-> string @-> returning tls_client_typ) tls_client
+      "tls_server_config" (string @-> string @-> returning tls_server_conf_typ) tls_server_config
+
+  let () = I.internal
+      "tls_client" (tls_client_conf_typ @-> string @-> returning tls_client_typ) tls_client
+
+  let () = I.internal
+      "tls_server" (tls_server_conf_typ @-> returning tls_client_typ) tls_server
 
   let () = I.internal
       "tls_do_handshake" (tls_client_typ @-> returning tls_handshake_state_typ) tls_do_handshake
