@@ -97,12 +97,17 @@ int main()
     perror ("TLS Eof");
     exit(errno);
   }
-
-  char * msg = "test";
-  tls_prepare_appdata(client, msg, strlen(msg));
-  handle_tls(client, sockfd);
-  char *recmsg = receive_tls(client, sockfd);
-  printf("RECEIVED ->%s<-\n", recmsg);
-  free(recmsg);
+  char sendmsg[4096];
+  char *recmsg;
+  while (1)
+    {
+      gets(sendmsg);
+      tls_prepare_appdata(client, sendmsg, strlen(sendmsg));
+      handle_tls(client, sockfd);
+      recmsg = receive_tls(client, sockfd);
+      printf("RECEIVED ->%s\n", recmsg);
+      free(recmsg);
+    }
+  free(sendmsg);
   return 0;
 }
